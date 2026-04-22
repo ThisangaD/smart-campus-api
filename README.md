@@ -1,7 +1,7 @@
 # 🏫 Smart Campus — Sensor & Room Management API
 
 > **Module:** 5COSC022W Client-Server Architectures  
-> **Stack:** Java 11 · JAX-RS (Jersey 2.40) · Grizzly2 HTTP Server · Jackson · Maven
+> **Stack:** Java 11 · JAX-RS (Jersey 2.40) · Apache Tomcat · Jackson · Maven
 
 ---
 
@@ -33,42 +33,47 @@ This RESTful API manages the university's Smart Campus infrastructure. It follow
 ```
 smart-campus-api/
 ├── pom.xml
-└── src/main/java/com/smartcampus/
-    ├── Main.java                          ← Grizzly server bootstrap
-    ├── SmartCampusApplication.java        ← @ApplicationPath("/api/v1")
-    ├── model/
-    │   ├── Room.java
-    │   ├── Sensor.java
-    │   ├── SensorReading.java
-    │   └── ErrorResponse.java
-    ├── store/
-    │   └── DataStore.java                 ← Singleton ConcurrentHashMap store
-    ├── resource/
-    │   ├── DiscoveryResource.java         ← GET /api/v1
-    │   ├── RoomResource.java              ← GET/POST/DELETE /api/v1/rooms
-    │   ├── SensorResource.java            ← GET/POST /api/v1/sensors + sub-resource locator
-    │   └── SensorReadingResource.java     ← GET/POST /api/v1/sensors/{id}/readings
-    ├── exception/
-    │   ├── RoomNotEmptyException.java           → 409 Conflict
-    │   ├── RoomNotEmptyExceptionMapper.java
-    │   ├── LinkedResourceNotFoundException.java → 422 Unprocessable Entity
-    │   ├── LinkedResourceNotFoundExceptionMapper.java
-    │   ├── SensorUnavailableException.java      → 403 Forbidden
-    │   ├── SensorUnavailableExceptionMapper.java
-    │   └── GlobalExceptionMapper.java           → 500 Internal Server Error (catch-all)
-    └── filter/
-        └── LoggingFilter.java             ← Request + Response logging filter
+├── src/
+│   └── main/
+│       ├── java/com/smartcampus/
+│       │   ├── SmartCampusApplication.java        ← @ApplicationPath("/api/v1")
+│       │   ├── model/
+│       │   │   ├── Room.java
+│       │   │   ├── Sensor.java
+│       │   │   ├── SensorReading.java
+│       │   │   └── ErrorResponse.java
+│       │   ├── store/
+│       │   │   └── DataStore.java                 ← Singleton ConcurrentHashMap store
+│       │   ├── resource/
+│       │   │   ├── DiscoveryResource.java         ← GET /api/v1
+│       │   │   ├── RoomResource.java              ← GET/POST/DELETE /api/v1/rooms
+│       │   │   ├── SensorResource.java            ← GET/POST /api/v1/sensors + sub-resource locator
+│       │   │   └── SensorReadingResource.java     ← GET/POST /api/v1/sensors/{id}/readings
+│       │   ├── exception/
+│       │   │   ├── RoomNotEmptyException.java           → 409 Conflict
+│       │   │   ├── RoomNotEmptyExceptionMapper.java
+│       │   │   ├── LinkedResourceNotFoundException.java → 422 Unprocessable Entity
+│       │   │   ├── LinkedResourceNotFoundExceptionMapper.java
+│       │   │   ├── SensorUnavailableException.java      → 403 Forbidden
+│       │   │   ├── SensorUnavailableExceptionMapper.java
+│       │   │   └── GlobalExceptionMapper.java           → 500 Internal Server Error (catch-all)
+│       │   └── filter/
+│       │       └── LoggingFilter.java             ← Request + Response logging filter
+│       └── webapp/
+│           └── WEB-INF/
+│               └── web.xml                        ← Servlet configuration (Tomcat deployment descriptpr)
 ```
 
 ---
 
-## 🛠️ How to Build and Run
+## 🛠️ How to Build and Deploy
 
 ### Prerequisites
 | Tool | Version |
 |------|---------|
 | Java JDK | 11 or higher |
 | Apache Maven | 3.8 or higher |
+| Apache Tomcat | 9.0 or higher |
 
 Verify installations:
 ```bash
@@ -82,36 +87,72 @@ git clone https://github.com/ThisangaD/smart-campus-api.git
 cd smart-campus-api
 ```
 
-### Step 2 — Build the fat JAR
+### Step 2 — Build the WAR file
 ```bash
 mvn clean package -DskipTests
 ```
-This creates `target/smart-campus-api-1.0-SNAPSHOT.jar` containing all dependencies.
+This creates `target/smart-campus-api-1.0-SNAPSHOT.war` optimized for Tomcat deployment.
 
-### Step 3 — Start the server
+### Step 3 — Deploy to Tomcat
+
+#### Option A: Manual Copy
+1. Copy the WAR file to your Tomcat installation:
+   ```bash
+   cp target/smart-campus-api-1.0-SNAPSHOT.war $CATALINA_HOME/webapps/
+   ```
+   Or on Windows:
+   ```bash
+   copy target\smart-campus-api-1.0-SNAPSHOT.war %CATALINA_HOME%\webapps\
+   ```
+
+2. Start Tomcat:
+   ```bash
+   $CATALINA_HOME/bin/startup.sh     # Linux/macOS
+   %CATALINA_HOME%\bin\startup.bat   # Windows
+   ```
+   Tomcat automatically deploys the WAR file.
+
+#### Option B: Using Tomcat Manager (Web UI)
+1. Start Tomcat if not already running
+2. Navigate to `http://localhost:8080/manager`
+3. Use "Deploy" section to upload the WAR file
+
+### Step 4 — Verify Deployment
+Once Tomcat starts, the API will be available at:
+```
+http://localhost:8080/smart-campus-api-1.0-SNAPSHOT/api/v1
+```
+
+Or if deployed with a custom context name:
+```
+http://localhost:8080/api/v1
+```
+
+The Discovery endpoint should return:
+```json
+{
+  "status": "RUNNING",
+  "version": "1.0-SNAPSHOT",
+  "_links": {
+    "rooms": "/api/v1/rooms",
+    "sensors": "/api/v1/sensors"
+  }
+}
+```
+
+### Step 5 — Stop Tomcat
 ```bash
-java -jar target/smart-campus-api-1.0-SNAPSHOT.jar
+$CATALINA_HOME/bin/shutdown.sh      # Linux/macOS
+%CATALINA_HOME%\bin\shutdown.bat    # Windows
 ```
-
-The server starts on **http://localhost:8080/api/v1**
-
-You will see:
-```
-INFO: ====================================================
-INFO:   Smart Campus API is running!
-INFO:   Base URI : http://0.0.0.0:8080/api/v1/
-INFO:   Discovery: http://localhost:8080/api/v1
-INFO:   Rooms    : http://localhost:8080/api/v1/rooms
-INFO:   Sensors  : http://localhost:8080/api/v1/sensors
-INFO:   Press ENTER to stop the server.
-INFO: ====================================================
-```
-
-Press **ENTER** to stop the server gracefully.
 
 ---
 
 ## 🧪 Sample curl Commands
+
+> **Note:** Replace `http://localhost:8080/api/v1` with your actual deployment URL.  
+> If deployed as `ROOT.war`, the URL is `http://localhost:8080/api/v1`.  
+> If deployed as `smart-campus-api-1.0-SNAPSHOT.war`, the URL is `http://localhost:8080/smart-campus-api-1.0-SNAPSHOT/api/v1`.
 
 ### 1. Discovery Endpoint (HATEOAS)
 ```bash
@@ -238,6 +279,31 @@ Expected: `204 No Content`.
 | GET | `/api/v1/sensors/{sensorId}` | Get sensor by ID | 200 / 404 |
 | GET | `/api/v1/sensors/{sensorId}/readings` | Get reading history | 200 / 404 |
 | POST | `/api/v1/sensors/{sensorId}/readings` | Add new reading | 201 / 403 / 404 |
+
+---
+
+## 📍 REST Best Practices — Location Headers
+
+When creating new resources (`POST` methods that return `201 Created`), the API includes a `Location` header in the response. This header contains the absolute URI of the newly created resource, allowing clients to immediately fetch or reference the resource without having to construct the URL manually.
+
+**Example:**
+```bash
+POST /api/v1/rooms HTTP/1.1
+Content-Type: application/json
+
+{"id": "NEW-001", "name": "New Room", "capacity": 20}
+```
+
+**Response:**
+```
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: http://localhost:8080/api/v1/rooms/NEW-001
+
+{"id": "NEW-001", "name": "New Room", "capacity": 20, "sensorIds": []}
+```
+
+Clients can extract the `Location` header and follow it to retrieve the resource, or use it in subsequent requests. This is documented in [RFC 7231, Section 7.1.2](https://tools.ietf.org/html/rfc7231#section-7.1.2) as a standard REST practice for resource creation responses.
 
 ---
 
