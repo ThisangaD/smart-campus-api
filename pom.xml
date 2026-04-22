@@ -8,7 +8,8 @@
     <groupId>com.smartcampus</groupId>
     <artifactId>smart-campus-api</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <!-- WAR packaging for Tomcat deployment -->
+    <packaging>war</packaging>
     <name>Smart Campus API</name>
 
     <properties>
@@ -19,10 +20,10 @@
     </properties>
 
     <dependencies>
-        <!-- Jersey with Grizzly2 Embedded HTTP Server -->
+        <!-- Jersey Servlet Container (replaces Grizzly) -->
         <dependency>
             <groupId>org.glassfish.jersey.containers</groupId>
-            <artifactId>jersey-container-grizzly2-http</artifactId>
+            <artifactId>jersey-container-servlet</artifactId>
             <version>${jersey.version}</version>
         </dependency>
 
@@ -39,6 +40,14 @@
             <artifactId>jersey-media-json-jackson</artifactId>
             <version>${jersey.version}</version>
         </dependency>
+
+        <!-- Servlet API - provided by Tomcat, not bundled in WAR -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>4.0.1</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -54,42 +63,14 @@
                 </configuration>
             </plugin>
 
-            <!-- Shade Plugin — builds a single executable fat JAR -->
+            <!-- WAR Plugin - produces deployable WAR file -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <transformers>
-                                <!-- Set the main class -->
-                                <transformer implementation=
-                                  "org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.smartcampus.Main</mainClass>
-                                </transformer>
-                                <!-- Merge META-INF/services (critical for Jersey providers) -->
-                                <transformer implementation=
-                                  "org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                            <!-- Exclude signature files that cause security exceptions -->
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.4.0</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
             </plugin>
         </plugins>
     </build>

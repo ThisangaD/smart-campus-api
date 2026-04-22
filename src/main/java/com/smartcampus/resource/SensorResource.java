@@ -5,8 +5,10 @@ import com.smartcampus.model.Sensor;
 import com.smartcampus.store.DataStore;
 
 import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,10 @@ public class SensorResource {
 
     private final DataStore store = DataStore.getInstance();
 
+    // ✔ Added for REST Location header support
+    @Context
+    private UriInfo uriInfo;
+
     // ── GET /sensors  (with optional ?type= filter) ───────────────────────────
 
     @GET
@@ -30,7 +36,6 @@ public class SensorResource {
         List<Sensor> sensorList = new ArrayList<>(store.getSensors().values());
 
         if (type != null && !type.trim().isEmpty()) {
-            // Case-insensitive filter by sensor type
             sensorList = sensorList.stream()
                     .filter(s -> s.getType().equalsIgnoreCase(type.trim()))
                     .collect(Collectors.toList());
@@ -43,6 +48,7 @@ public class SensorResource {
 
     @POST
     public Response createSensor(Sensor sensor) {
+
         // Validate required fields
         if (sensor == null || sensor.getId() == null || sensor.getId().trim().isEmpty()) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -50,6 +56,8 @@ public class SensorResource {
                                    "message", "Sensor 'id' is required"))
                     .build();
         }
+
+        // Duplicate check
         if (store.getSensors().containsKey(sensor.getId())) {
             return Response.status(Response.Status.CONFLICT)
                     .entity(Map.of("status", 409, "error", "Conflict",
@@ -57,29 +65,35 @@ public class SensorResource {
                     .build();
         }
 
-        // Integrity check: the referenced roomId must exist
+        // Integrity check: room must exist
         if (sensor.getRoomId() == null || !store.getRooms().containsKey(sensor.getRoomId())) {
             throw new LinkedResourceNotFoundException(
                     "Cannot register sensor: Room with ID '"
-                    + sensor.getRoomId() + "' does not exist in the system."
+                            + sensor.getRoomId() + "' does not exist in the system."
             );
         }
 
-        // Default status to ACTIVE if not provided
+        // Default status
         if (sensor.getStatus() == null || sensor.getStatus().trim().isEmpty()) {
             sensor.setStatus("ACTIVE");
         }
 
-        // Persist sensor
+        // Save sensor
         store.getSensors().put(sensor.getId(), sensor);
 
-        // Maintain bidirectional link: add sensorId to the parent room's list
+        // Link sensor to room
         store.getRooms().get(sensor.getRoomId()).getSensorIds().add(sensor.getId());
 
-        // Initialise an empty readings list for this sensor
+        // Initialise readings list
         store.getSensorReadings().put(sensor.getId(), new ArrayList<>());
 
-        return Response.status(Response.Status.CREATED).entity(sensor).build();
+        // ✔ UPDATED RESPONSE (Location header added)
+        return Response.status(Response.Status.CREATED)
+                .location(uriInfo.getAbsolutePathBuilder()
+                        .path(sensor.getId())
+                        .build())
+                .entity(sensor)
+                .build();
     }
 
     // ── GET /sensors/{sensorId} ───────────────────────────────────────────────
@@ -88,18 +102,18 @@ public class SensorResource {
     @Path("/{sensorId}")
     public Response getSensorById(@PathParam("sensorId") String sensorId) {
         Sensor sensor = store.getSensors().get(sensorId);
+
         if (sensor == null) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity(Map.of("status", 404, "error", "Not Found",
                                    "message", "Sensor not found: " + sensorId))
                     .build();
         }
+
         return Response.ok(sensor).build();
     }
 
     // ── SUB-RESOURCE LOCATOR: /sensors/{sensorId}/readings ───────────────────
-    // No HTTP method annotation → JAX-RS treats this as a sub-resource locator.
-    // Jersey delegates all further path matching to the returned object.
 
     @Path("/{sensorId}/readings")
     public SensorReadingResource getReadingResource(@PathParam("sensorId") String sensorId) {
