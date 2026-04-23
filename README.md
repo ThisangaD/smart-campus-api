@@ -131,9 +131,16 @@ http://localhost:8080/api/v1
 The Discovery endpoint should return:
 ```json
 {
-  "status": "RUNNING",
-  "version": "1.0-SNAPSHOT",
+  "api": "Smart Campus Sensor & Room Management API",
+  "version": "v1",
+  "contact": "admin@smartcampus.ac.uk",
+  "description": "RESTful API for managing university campus rooms and IoT sensors",
   "_links": {
+    "self": "/api/v1",
+    "rooms": "/api/v1/rooms",
+    "sensors": "/api/v1/sensors"
+  },
+  "resources": {
     "rooms": "/api/v1/rooms",
     "sensors": "/api/v1/sensors"
   }
